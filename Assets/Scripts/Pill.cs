@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class Pill : MonoBehaviour {
+public class Pill : MonoBehaviour
+{
 
+    public List<Sprite> pillHalves = new List<Sprite>();
     public List<Sprite> pillPieces = new List<Sprite>();
 
     private Vector2 gridPos1;
@@ -12,6 +14,7 @@ public class Pill : MonoBehaviour {
     public FieldGrid field;
 
     public bool playing = false;
+    private bool ableToFall = false;
 
     public float fallTimer;
     private float fallTimerReset;
@@ -19,76 +22,190 @@ public class Pill : MonoBehaviour {
     public float stillTimer;
     private float stillTimerReset;
 
+    public float moveTimer;
+    private float moveDownReset;
+
     private int rotation;
 
     // Use this for initialization
-    void Start () {
+    void Start()
+    {
         gridPos1 = new Vector2(3, 0);
         gridPos2 = new Vector2(4, 0);
 
         //if (seed != 0) { Random.InitState(seed); }
 
         //Set a random sprite for both sides of the pill
-		foreach(Transform child in transform)
+        foreach (Transform child in transform)
         {
-            child.GetComponent<Image>().sprite = pillPieces[Random.Range(0, pillPieces.Count)];
+            //Set a random sprite for half od the pill
+            int sprite = Random.Range(0, pillHalves.Count);
+            child.GetComponent<Image>().sprite = pillHalves[sprite];
+
+            //Set the tag to the color of the pill
+            if (child.GetComponent<Image>().sprite.name.Contains("Blue")) { child.tag = "Blue"; }
+            if (child.GetComponent<Image>().sprite.name.Contains("Red")) { child.tag = "Red"; }
+            if (child.GetComponent<Image>().sprite.name.Contains("Yellow")) { child.tag = "Yellow"; }
+
+            //Set the pill piece sprite, and the timers for the pill piece
+            child.GetComponent<PillPiece>().pieceSprite = pillPieces[sprite];
+            child.GetComponent<PillPiece>().fallTimer = fallTimer;
+            child.GetComponent<PillPiece>().stillTimer = stillTimer;
+            child.GetComponent<PillPiece>().field = field;
         }
 
         //Set the reset timer values
         fallTimerReset = fallTimer;
         stillTimerReset = stillTimer;
-	}
-	
-	// Update is called once per frame
-	void Update () {
+        moveDownReset = moveTimer;
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        /*
+         * Not sure if this is needed to make an aspect of the game work
+         * REMOVE if it isn't needed
+         * 
+        if (ableToFall)
+        {
+            PillFall();
+            SetPosition();
+        }
+        */
 
         //If the pill is not in play don't update it
-        if (!playing) { return;}
+        if (!playing) { return; }
 
         PillFall();
-        SetPosition();
-
         ControlPill();
         SetPosition();
 
-        //If the pill has stayed still for to long destory this script
+        PlacePill();
+    }
+
+    /// <summary>
+    /// Place the pill at its final resting place
+    /// </summary>
+    private void PlacePill()
+    {
+        //Test if the pill has stayed still for a long time
         if (stillTimer <= 0)
         {
-            transform.SetParent(field.gameObject.transform);
+            //Get the left and right half of the pill
+            GameObject left = transform.Find("Left").gameObject;
+            GameObject right = transform.Find("Right").gameObject;
+
+            //Set the position the halfs occupy on the grid
+            field.GetComponent<FieldGrid>().gameObjects[gridPos1] = left;
+            field.GetComponent<FieldGrid>().gameObjects[gridPos2] = right;
+
+            //Check if there are any matches
+            field.GetComponent<FieldGrid>().RemoveMatches(gridPos1);
+            field.GetComponent<FieldGrid>().RemoveMatches(gridPos2);
+
+            //Set the position of the individual pill pieces
+            left.GetComponent<PillPiece>().gridPos = gridPos1;
+            right.GetComponent<PillPiece>().gridPos = gridPos2;
+
+            //Destryo this script
             Destroy(this);
         }
-	}
+    }
 
+    /// <summary>
+    /// Control the pill before it is locked into place
+    /// </summary>
     private void ControlPill()
     {
-        if (Input.GetKeyDown(KeyCode.S))
+        //Set the timer to 0 on the first frame a movement key is pressed
+        if (Input.GetKeyDown(KeyCode.S) ||
+            Input.GetKeyDown(KeyCode.A) ||
+            Input.GetKeyDown(KeyCode.D)) { moveTimer = 0; }
+
+        //Reset the timer when the key is held up
+        if (Input.GetKeyUp(KeyCode.S) ||
+            Input.GetKeyUp(KeyCode.A) ||
+            Input.GetKeyUp(KeyCode.D)) { moveTimer = moveDownReset; }
+
+        //Reduce the time it takes to move when a movement key is held
+        if (Input.GetKey(KeyCode.S) ||
+            Input.GetKey(KeyCode.A) ||
+            Input.GetKey(KeyCode.D))
         {
-            if (!MovePill(new Vector2(0, 1))) { stillTimer = 0; }
-            fallTimer = fallTimerReset;
+            moveTimer -= Time.deltaTime;
         }
 
-        if (Input.GetKeyDown(KeyCode.A))
+        //Make the key fall faster
+        if (Input.GetKey(KeyCode.S))
         {
-            if (MovePill(new Vector2(-1, 0))) { fallTimer += Time.deltaTime * 5; }
+            //Make the timer run faster
+            moveTimer -= Time.deltaTime;
 
-        } else if (Input.GetKeyDown(KeyCode.D))
-        {
-            if (MovePill(new Vector2(1, 0))) { fallTimer += Time.deltaTime * 5; }
+            //Test if the timer is finished
+            if (moveTimer <= 0)
+            {
+                //Move the pill if it returns true, set the pill
+                if (!MovePill(new Vector2(0, 1))) { stillTimer = 0; }
+
+                //Reset the fall timer and movement timer
+                fallTimer = fallTimerReset;
+                moveTimer = moveDownReset;
+            }
         }
 
+        if (Input.GetKey(KeyCode.A))
+        {
+            //Test if the timer is finished
+            if (moveTimer <= 0)
+            {
+                //Move the pill to the right and reset the movement timer
+                if (MovePill(new Vector2(-1, 0))) { fallTimer += Time.deltaTime * 5; }
+                moveTimer = moveDownReset;
+            }
+
+        }
+        else if (Input.GetKey(KeyCode.D))
+        {
+            //Test if the timer is finished
+            if (moveTimer <= 0)
+            {
+                //Move the pill to the left and reset the fall timer
+                if (MovePill(new Vector2(1, 0))) { fallTimer += Time.deltaTime * 5; }
+                moveTimer = moveDownReset;
+            }
+        }
+
+        //Rotate the pill Clockwise
         if (Input.GetKeyDown(KeyCode.Q))
         {
             if (RotatePill(1)) { fallTimer += Time.deltaTime * 5; }
         }
+
+        /*
+        if (Input.GetKeyDown(KeyCode.E))
+        {
+            //Rotate the pill
+            if (RotatePill(-1)) { fallTimer += Time.deltaTime * 5; }
+        }
+        */
     }
 
+    /// <summary>
+    /// Rotate the pill in a 2*2 square
+    /// </summary>
+    /// <param name="direction">The direction the pill will rotate</param>
+    /// <returns></returns>
     private bool RotatePill(int direction)
     {
-        int localRot = (rotation + 90 * direction) % 360;
+        //Get the next rotation the pill will be at
+        int localRot = ((rotation + 360) + 90 * direction) % 360;
 
+        //The new position for the pill
         Vector2 newPos1 = gridPos1;
         Vector2 newPos2 = gridPos2;
 
+        //Set the new position based on the rotation
         switch (localRot)
         {
             case 0:
@@ -121,11 +238,10 @@ public class Pill : MonoBehaviour {
                 (field.gameObjects[newPos2] == null ||
                 field.gameObjects[newPos2] == gameObject))
             {
-
-                rotation += (90 * direction) % 360;
-                transform.localRotation = Quaternion.Euler(new Vector3(0, 0, rotation));
-
-                Debug.Log(newPos1 + " " + newPos2);
+                //Rotate the pill
+                rotation += (90 * direction);
+                rotation %= 360;
+                transform.localRotation = Quaternion.Euler(new Vector3(0, 0, -rotation));
 
                 //Remove the pill from the current position
                 field.gameObjects[gridPos1] = null;
@@ -144,8 +260,14 @@ public class Pill : MonoBehaviour {
         return false;
     }
 
+    /// <summary>
+    /// Move the pill in the direction passed as a parameter
+    /// </summary>
+    /// <param name="dir">The direction the pill will move towards</param>
+    /// <returns></returns>
     private bool MovePill(Vector2 dir)
     {
+        //Get the new positions of the pill
         Vector2 newPos1 = gridPos1 + dir;
         Vector2 newPos2 = gridPos2 + dir;
 
@@ -193,7 +315,8 @@ public class Pill : MonoBehaviour {
             //Reset the timer
             fallTimer = fallTimerReset;
 
-            if (!MovePill(new Vector2(0, 1))) {
+            if (!MovePill(new Vector2(0, 1)))
+            {
                 //If the pill doesn't move start the still timer
                 //Keep the movement timer at 0
                 stillTimer -= Time.deltaTime;

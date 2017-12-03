@@ -14,15 +14,22 @@ public class FieldGrid : MonoBehaviour
     //The different enemies that can spawn
     public List<GameObject> enemies = new List<GameObject>();
 
+    //The pill prefab
     public GameObject pillPrefab;
+
+    //The next playing pill, the current playing pill, and the spawn position 
     private GameObject nextPill = null;
     private GameObject playingPill = null;
     private Vector2 pillSpawnPos;
+
+    //The list of peices that are moving
+    public List<GameObject> movingPieces = new List<GameObject>();
 
     //The size of the field
     private const int gridSize = 8;
     private const int gridWidth = 8;
     private const int gridHeight = 16;
+
 
     // Use this for initialization
     void Start()
@@ -36,6 +43,21 @@ public class FieldGrid : MonoBehaviour
     void Update()
     {
         SpawnPill();
+
+        if (movingPieces.Count > 0)
+        {
+            //Don't throw any exeptions trying to remove null from the list
+            try
+            {
+                if (movingPieces.Contains(null))
+                {
+                    movingPieces.RemoveAll(null);
+                }
+            }
+            catch (System.Exception)
+            {
+            }
+        }
     }
 
     /// <summary>
@@ -74,12 +96,12 @@ public class FieldGrid : MonoBehaviour
     /// <param name="difficulty">The difficulty the player is playing at</param>
     public void SpawnEnemies(int seed, int difficulty = 1)
     {
-        return;
         //Set the Random starting seed
         Random.InitState(seed);
 
         //Loop through the amount of enemies that should be created
-        for (int i = 0; i < Random.Range(2 * difficulty, 10 * difficulty); i++)
+        for (int i = 0; i < 10; i++)
+        //for (int i = 0; i < Random.Range(2 * difficulty, 10 * difficulty); i++)
         {
             //Create a new enemy
             GameObject enemy = Instantiate(enemies[Random.Range(0, enemies.Count)]);
@@ -104,8 +126,13 @@ public class FieldGrid : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Spawn a pill in the play area
+    /// </summary>
     private void SpawnPill()
     {
+        if (movingPieces.Count != 0) { return; }
+
         //Determing if the playing pill is still being controlled
         if (nextPill != null &&
             playingPill == null)
@@ -134,12 +161,18 @@ public class FieldGrid : MonoBehaviour
             return;
         }
 
+        //Set that there is no playing pill if the pill component doesn't exist
         if (!playingPill.GetComponent<Pill>())
         {
             playingPill = null;
         }
     }
 
+    /// <summary>
+    /// Determine if an object is indside the play area or not
+    /// </summary>
+    /// <param name="pos">The position the object will be</param>
+    /// <returns></returns>
     public bool InBounds(Vector2 pos)
     {
         if (pos.x < 0 ||
@@ -151,5 +184,144 @@ public class FieldGrid : MonoBehaviour
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Remove rows of 4 or more of the same color
+    /// </summary>
+    /// <param name="startingPos">The last placed pill piece</param>
+    public void RemoveMatches(Vector2 startingPos)
+    {
+        //If the piece doesn't extist retun, else set the peice color
+        if (!gameObjects[startingPos]) { return; }
+        string colorTag = gameObjects[startingPos].tag;
+
+        //List of matches in both directions
+        List<Vector2> horizontal = new List<Vector2>();
+        List<Vector2> vertical = new List<Vector2>();
+        //Add the starting position to both lists
+        horizontal.Add(startingPos);
+        vertical.Add(startingPos);
+
+        //Current index, and whether the left/right can be checked
+        int i = 1;
+        bool checkLeft = true;
+        bool checkRight = true;
+        while (true)
+        {
+            //Whether a match is made or not
+            bool match = false;
+
+            //Make sure the index in the play area and left can be checked
+            if (startingPos.x - i >= 0 && checkLeft)
+
+                //Make sure an object is at the position and the tags match
+                if (gameObjects[startingPos - new Vector2(i, 0)])
+                {
+                    if (gameObjects[startingPos - new Vector2(i, 0)].tag == colorTag)
+                    {
+                        //Add the position to the list and set that a match is made
+                        horizontal.Add(startingPos - new Vector2(i, 0));
+                        match = true;
+                    }
+
+                    //If something goes wrong never check the left again
+                    else { checkLeft = false; }
+                }
+                else { checkLeft = false; }
+
+            //Make sure the index in the play area and right can be checked
+            if (startingPos.x + i < gridWidth && checkRight)
+
+                //Make sure an object is at the position and the tags match
+                if (gameObjects[startingPos + new Vector2(i, 0)])
+                {
+                    if (gameObjects[startingPos + new Vector2(i, 0)].tag == colorTag)
+                    {
+                        //Add the position to the list and set that a match is made
+                        horizontal.Add(startingPos + new Vector2(i, 0));
+                        match = true;
+                    }
+
+                    //If something goes wrong never check the right again
+                    else { checkRight = false; }
+                }
+                else { checkRight = false; }
+
+            //Increase the index, and break if a match isn't made
+            i++;
+            if (!match) { break; }
+        }
+
+        //Current index, and whether the up/down can be checked
+        i = 1;
+        bool checkup = true;
+        bool checkDown = true;
+        while (true)
+        {
+            //Whether a match is made or not
+            bool match = false;
+
+            //Make sure the index in the play area and up can be checked
+            if (startingPos.y - i >= 0 && checkup)
+
+                //Make sure an object is at the position and the tags match
+                if (gameObjects[startingPos - new Vector2(0, i)])
+                {
+                    if (gameObjects[startingPos - new Vector2(0, i)].tag == colorTag)
+                    {
+                        //Add the position to the list and set that a match is made
+                        vertical.Add(startingPos - new Vector2(0, i));
+                        match = true;
+                    }
+
+                    //If something goes wrong never check the up again
+                    else { checkup = false; }
+                }
+                else { checkup = false; }
+
+            //Make sure the index in the play area and down can be checked
+            if (startingPos.y + i < gridHeight && checkDown)
+
+                //Make sure an object is at the position and the tags match
+                if (gameObjects[startingPos + new Vector2(0, i)]) {
+                    if (gameObjects[startingPos + new Vector2(0, i)].tag == colorTag)
+                    {
+                        //Add the position to the list and set that a match is made
+                        vertical.Add(startingPos + new Vector2(0, i));
+                        match = true;
+                    }
+
+                    //If something goes wrong never check the down again
+                    else { checkDown = false; }
+                }
+                else { checkDown = false; }
+
+            //Increase the index, and break if a match isn't made
+            i++;
+            if (!match) { break; }
+        }
+
+        //Test if the list has more than 4 elements
+        if (horizontal.Count >= 4)
+        {
+            //Destroy all the objects and set the position to have nothing
+            foreach (Vector2 pos in horizontal)
+            {
+                Destroy(gameObjects[pos]);
+                gameObjects[pos] = null;
+            }
+        }
+
+        //Test if the list has more than 4 elements
+        if (vertical.Count >= 4)
+        {
+            //Destroy all the objects and set the position to have nothing
+            foreach (Vector2 pos in vertical)
+            {
+                Destroy(gameObjects[pos]);
+                gameObjects[pos] = null;
+            }
+        }
     }
 }
