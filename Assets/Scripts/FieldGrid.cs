@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class FieldGrid : MonoBehaviour
@@ -13,6 +14,7 @@ public class FieldGrid : MonoBehaviour
 
     //The different enemies that can spawn
     public List<GameObject> enemies = new List<GameObject>();
+    private List<GameObject> spawnedEnemies = new List<GameObject>();
 
     //The pill prefab
     public GameObject pillPrefab;
@@ -22,6 +24,14 @@ public class FieldGrid : MonoBehaviour
     private GameObject playingPill = null;
     private Vector2 pillSpawnPos;
 
+    public int currentLevel = 0;
+
+    public float nextLevelTimer;
+    private float resetLevelTimer;
+
+    public float waitTimer;
+    private float waitReset;
+
     //The list of peices that are moving
     public List<GameObject> movingPieces = new List<GameObject>();
 
@@ -30,10 +40,17 @@ public class FieldGrid : MonoBehaviour
     private const int gridWidth = 8;
     private const int gridHeight = 16;
 
+    public bool gameOver = false;
+    public bool lost = false;
+
+    public Manager manager;
 
     // Use this for initialization
     void Start()
     {
+        resetLevelTimer = nextLevelTimer;
+        waitReset = waitTimer;
+
         SetupGrid();
 
         SpawnPill();
@@ -42,7 +59,11 @@ public class FieldGrid : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        SpawnPill();
+        if (!gameOver &&
+            spawnedEnemies.Count > 0)
+        {
+            SpawnPill();
+        }
 
         if (movingPieces.Count > 0)
         {
@@ -57,6 +78,70 @@ public class FieldGrid : MonoBehaviour
             catch (System.Exception)
             {
             }
+        }
+
+        foreach (GameObject pill in GameObject.FindGameObjectsWithTag("Pill"))
+        {
+            if (pill.transform.childCount == 0)
+            {
+                Destroy(pill);
+            }
+        }
+
+        if (movingPieces.Count == 0)
+        {
+            GameStatus();
+        }
+
+        manager.viruses = spawnedEnemies.Count();
+    }
+
+    /// <summary>
+    /// Determine if the player won and the game is over
+    /// </summary>
+    private void GameStatus()
+    {
+        if (spawnedEnemies.Count == 0 ||
+            gameOver)
+        {
+            waitTimer -= Time.deltaTime;
+            if (waitTimer > 0) { return; }
+
+            if (!gameOver) { manager.score += currentLevel * 100; }
+
+            gameOver = true;
+            nextLevelTimer -= Time.deltaTime;
+        }
+
+        if (nextLevelTimer <= 0)
+        {
+            gameOver = false;
+            nextLevelTimer = resetLevelTimer;
+
+            if (!lost)
+            {
+                currentLevel++;
+            }
+
+            if (currentLevel >= 20) { currentLevel = 20; }
+
+            foreach(Vector2 pos in gameObjects.Keys.ToList())
+            {
+                gameObjects[pos] = null;
+            }
+
+            SpawnEnemies(currentLevel);
+            movingPieces.Clear();
+
+            waitTimer = waitReset;
+
+            lost = false;
+        }
+
+        if (lost)
+        {
+            gameOver = true;
+            manager.score = 0;
         }
     }
 
@@ -92,16 +177,21 @@ public class FieldGrid : MonoBehaviour
     /// <summary>
     /// Spawn in the enemies for the player to remove
     /// </summary>
-    /// <param name="seed">The seed that enemeies will be spawn with</param>
+    /// <param name="seed">The seed that enemies will be spawn with</param>
     /// <param name="difficulty">The difficulty the player is playing at</param>
-    public void SpawnEnemies(int seed, int difficulty = 1)
+    public void SpawnEnemies(int difficulty = 1, int seed = -1)
     {
+        if (currentLevel == 0) { currentLevel = difficulty; }
+        if (seed == -1) { seed = Random.Range(0, 1000); }
+
         //Set the Random starting seed
         Random.InitState(seed);
 
+        manager.level = difficulty;
+        manager.viruses = (difficulty * 4);
+
         //Loop through the amount of enemies that should be created
-        for (int i = 0; i < 10; i++)
-        //for (int i = 0; i < Random.Range(2 * difficulty, 10 * difficulty); i++)
+        for (int i = 0; i < (difficulty * 4); i++)
         {
             //Create a new enemy
             GameObject enemy = Instantiate(enemies[Random.Range(0, enemies.Count)]);
@@ -111,18 +201,131 @@ public class FieldGrid : MonoBehaviour
             enemy.transform.localScale = transform.localScale;
 
             //Get a random grid position until there isn't an enemy in that position
-            Vector2 setGridPos = new Vector2((int)Random.Range(0, gridWidth), (int)Random.Range(3, gridHeight));
+            Vector2 setGridPos = new Vector2((int)Random.Range(0, gridWidth), (int)Random.Range(8 - difficulty / 4, gridHeight));
             while (gameObjects[setGridPos] != null)
             {
-                setGridPos = new Vector2((int)Random.Range(0, gridWidth), (int)Random.Range(3, gridHeight));
+                setGridPos.x++;
+                if (setGridPos.x >= gridWidth)
+                {
+                    setGridPos.x = 0;
+                    setGridPos.y++;
+
+                    if (setGridPos.y >= gridHeight)
+                    {
+                        setGridPos.y = 8 - difficulty / 4;
+                    }
+                }
             }
 
             //Set that an enemy is at that grid position
             gameObjects[setGridPos] = enemy;
+            spawnedEnemies.Add(enemy);
 
             //Set the position of the enemy and make it a child of the field
             enemy.transform.localPosition = gridPos[setGridPos];
             enemy.transform.SetParent(transform);
+
+            enemy.GetComponent<Enemy>().field = this;
+        }
+
+        MoveStackedEnemies();
+    }
+
+    private void MoveStackedEnemies()
+    {
+        bool change = false;
+
+        Vector2 replace = new Vector2(-1, -1);
+
+        foreach (Vector2 pos in gameObjects.Keys)
+        {
+            if (gameObjects[pos] == null) { continue; }
+
+            int count = 0;
+
+            if (Exists(pos + new Vector2(1, 0)))
+            {
+                if (gameObjects[pos + new Vector2(1, 0)].tag == gameObjects[pos].tag)
+                {
+                    count++;
+                }
+            }
+
+            if (Exists(pos - new Vector2(1, 0)))
+
+            {
+                if (gameObjects[pos - new Vector2(1, 0)].tag == gameObjects[pos].tag)
+                {
+                    count++;
+                }
+            }
+
+            if (Exists(pos + new Vector2(0, 1)))
+
+            {
+                if (gameObjects[pos + new Vector2(0, 1)].tag == gameObjects[pos].tag)
+                {
+                    count++;
+                }
+            }
+
+            if (Exists(pos - new Vector2(0, 1)))
+
+            {
+                if (gameObjects[pos - new Vector2(0, 1)].tag == gameObjects[pos].tag)
+                {
+                    count++;
+                }
+            }
+
+            if (count >= 2)
+            {
+                change = true;
+                replace = pos;
+
+                break;
+            }
+        }
+
+
+
+        if (change)
+        {
+            GameObject newEnemy = null;
+
+            switch (gameObjects[replace].tag)
+            {
+                case "Blue":
+                    if (Random.Range(0, 1) == 1) { newEnemy = Instantiate(enemies[1]); }
+                    else { newEnemy = Instantiate(enemies[2]); }
+                    break;
+
+                case "Red":
+                    if (Random.Range(0, 1) == 1) { newEnemy = Instantiate(enemies[2]); }
+                    else { newEnemy = Instantiate(enemies[0]); }
+                    break;
+
+                case "Yellow":
+                    if (Random.Range(0, 1) == 1) { newEnemy = Instantiate(enemies[0]); }
+                    else { newEnemy = Instantiate(enemies[1]); }
+                    break;
+            }
+
+            spawnedEnemies.Remove(gameObjects[replace]);
+            Destroy(gameObjects[replace]);
+
+            gameObjects[replace] = newEnemy;
+            spawnedEnemies.Add(newEnemy);
+
+            newEnemy.transform.SetParent(transform.parent);
+            newEnemy.transform.localScale = transform.localScale;
+
+            newEnemy.transform.localPosition = gridPos[replace];
+            newEnemy.transform.SetParent(transform);
+
+            newEnemy.GetComponent<Enemy>().field = this;
+
+            MoveStackedEnemies();
         }
     }
 
@@ -186,6 +389,15 @@ public class FieldGrid : MonoBehaviour
         return true;
     }
 
+    public bool Exists(Vector2 pos)
+    {
+        if (!InBounds(pos)) { return false; }
+
+        if (gameObjects[pos] != null) { return true; }
+
+        return false;
+    }
+
     /// <summary>
     /// Remove rows of 4 or more of the same color
     /// </summary>
@@ -213,40 +425,32 @@ public class FieldGrid : MonoBehaviour
             bool match = false;
 
             //Make sure the index in the play area and left can be checked
-            if (startingPos.x - i >= 0 && checkLeft)
-
-                //Make sure an object is at the position and the tags match
-                if (gameObjects[startingPos - new Vector2(i, 0)])
+            if (Exists(startingPos - new Vector2(i, 0)) && checkLeft)
+                if (gameObjects[startingPos - new Vector2(i, 0)].tag == colorTag)
                 {
-                    if (gameObjects[startingPos - new Vector2(i, 0)].tag == colorTag)
-                    {
-                        //Add the position to the list and set that a match is made
-                        horizontal.Add(startingPos - new Vector2(i, 0));
-                        match = true;
-                    }
-
-                    //If something goes wrong never check the left again
-                    else { checkLeft = false; }
+                    //Add the position to the list and set that a match is made
+                    horizontal.Add(startingPos - new Vector2(i, 0));
+                    match = true;
                 }
+
+                //If something goes wrong never check the left again
                 else { checkLeft = false; }
+            else { checkLeft = false; }
 
             //Make sure the index in the play area and right can be checked
-            if (startingPos.x + i < gridWidth && checkRight)
-
-                //Make sure an object is at the position and the tags match
-                if (gameObjects[startingPos + new Vector2(i, 0)])
+            if (Exists(startingPos + new Vector2(i, 0)) && checkRight)
+            {
+                if (gameObjects[startingPos + new Vector2(i, 0)].tag == colorTag)
                 {
-                    if (gameObjects[startingPos + new Vector2(i, 0)].tag == colorTag)
-                    {
-                        //Add the position to the list and set that a match is made
-                        horizontal.Add(startingPos + new Vector2(i, 0));
-                        match = true;
-                    }
-
-                    //If something goes wrong never check the right again
-                    else { checkRight = false; }
+                    //Add the position to the list and set that a match is made
+                    horizontal.Add(startingPos + new Vector2(i, 0));
+                    match = true;
                 }
+
+                //If something goes wrong never check the right again
                 else { checkRight = false; }
+            }
+            else { checkRight = false; }
 
             //Increase the index, and break if a match isn't made
             i++;
@@ -263,39 +467,34 @@ public class FieldGrid : MonoBehaviour
             bool match = false;
 
             //Make sure the index in the play area and up can be checked
-            if (startingPos.y - i >= 0 && checkup)
-
-                //Make sure an object is at the position and the tags match
-                if (gameObjects[startingPos - new Vector2(0, i)])
+            if (Exists(startingPos - new Vector2(0, i)) && checkup)
+            {
+                if (gameObjects[startingPos - new Vector2(0, i)].tag == colorTag)
                 {
-                    if (gameObjects[startingPos - new Vector2(0, i)].tag == colorTag)
-                    {
-                        //Add the position to the list and set that a match is made
-                        vertical.Add(startingPos - new Vector2(0, i));
-                        match = true;
-                    }
-
-                    //If something goes wrong never check the up again
-                    else { checkup = false; }
+                    //Add the position to the list and set that a match is made
+                    vertical.Add(startingPos - new Vector2(0, i));
+                    match = true;
                 }
+
+                //If something goes wrong never check the up again
                 else { checkup = false; }
+            }
+            else { checkup = false; }
 
             //Make sure the index in the play area and down can be checked
-            if (startingPos.y + i < gridHeight && checkDown)
-
-                //Make sure an object is at the position and the tags match
-                if (gameObjects[startingPos + new Vector2(0, i)]) {
-                    if (gameObjects[startingPos + new Vector2(0, i)].tag == colorTag)
-                    {
-                        //Add the position to the list and set that a match is made
-                        vertical.Add(startingPos + new Vector2(0, i));
-                        match = true;
-                    }
-
-                    //If something goes wrong never check the down again
-                    else { checkDown = false; }
+            if (Exists(startingPos + new Vector2(0, i)) && checkDown)
+            {
+                if (gameObjects[startingPos + new Vector2(0, i)].tag == colorTag)
+                {
+                    //Add the position to the list and set that a match is made
+                    vertical.Add(startingPos + new Vector2(0, i));
+                    match = true;
                 }
+
+                //If something goes wrong never check the down again
                 else { checkDown = false; }
+            }
+            else { checkDown = false; }
 
             //Increase the index, and break if a match isn't made
             i++;
@@ -308,6 +507,14 @@ public class FieldGrid : MonoBehaviour
             //Destroy all the objects and set the position to have nothing
             foreach (Vector2 pos in horizontal)
             {
+                if (spawnedEnemies.Contains(gameObjects[pos])) {
+                    manager.score += 100;
+                } else
+                {
+                    manager.score += 10;
+                }
+
+                spawnedEnemies.Remove(gameObjects[pos]);
                 Destroy(gameObjects[pos]);
                 gameObjects[pos] = null;
             }
@@ -319,6 +526,15 @@ public class FieldGrid : MonoBehaviour
             //Destroy all the objects and set the position to have nothing
             foreach (Vector2 pos in vertical)
             {
+                if (spawnedEnemies.Contains(gameObjects[pos])) {
+                    manager.score += 100;
+                }
+                else
+                {
+                    manager.score += 10;
+                }
+
+                spawnedEnemies.Remove(gameObjects[pos]);
                 Destroy(gameObjects[pos]);
                 gameObjects[pos] = null;
             }

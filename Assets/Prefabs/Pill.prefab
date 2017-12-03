@@ -58,7 +58,7 @@ GameObject:
   - component: {fileID: 114364990336002182}
   m_Layer: 0
   m_Name: Pill
-  m_TagString: Untagged
+  m_TagString: Pill
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -159,8 +159,8 @@ MonoBehaviour:
   field: {fileID: 0}
   playing: 0
   fallTimer: 0.5
-  stillTimer: 0.2
-  moveTimer: 0.1
+  stillTimer: 0.5
+  moveTimer: 0.15
 --- !u!114 &114887164701622272
 MonoBehaviour:
   m_ObjectHideFlags: 1

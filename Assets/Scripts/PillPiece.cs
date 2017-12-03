@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class PillPiece : MonoBehaviour {
+public class PillPiece : MonoBehaviour
+{
 
     //The grid position and the sprite when it becomes a piece
     public Vector2 gridPos;
@@ -24,16 +25,19 @@ public class PillPiece : MonoBehaviour {
     private bool allowFall = false;
 
     // Use this for initialization
-    void Start () {
+    void Start()
+    {
 
         //Set the timers
-        fallTimerReset = fallTimer / 5;
+        fallTimerReset = fallTimer / 2;
         fallTimer = fallTimerReset;
-        stillTimerReset = stillTimer;
-	}
-	
-	// Update is called once per frame
-	void Update () {
+        stillTimerReset = stillTimer / 2;
+        stillTimer /= 2;
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
 
         //Test if the piece isn't apart of a pill
         TurnToPiece();
@@ -59,6 +63,11 @@ public class PillPiece : MonoBehaviour {
         if (field.movingPieces.Count == 0)
         {
             field.GetComponent<FieldGrid>().RemoveMatches(gridPos);
+        }
+
+        if (field.gameOver)
+        {
+            Destroy(gameObject);
         }
     }
 
@@ -142,10 +151,15 @@ public class PillPiece : MonoBehaviour {
                 //Set the position of the pill to the average of the new positions
                 transform.parent.localPosition = (field.gridPos[gridPos] + field.gridPos[rightPos]) / 2;
 
+                if (!field.movingPieces.Contains(gameObject))
+                {
+                    field.movingPieces.Add(gameObject);
+                }
                 return true;
             }
         }
 
+        field.movingPieces.Remove(gameObject);
         return false;
     }
 
@@ -158,7 +172,8 @@ public class PillPiece : MonoBehaviour {
         if (stillTimer <= 0)
         {
             field.movingPieces.Remove(gameObject);
-        } else if (!field.movingPieces.Contains(gameObject))
+        }
+        else if (!field.movingPieces.Contains(gameObject))
         {
             field.movingPieces.Add(gameObject);
         }
@@ -215,6 +230,7 @@ public class PillPiece : MonoBehaviour {
 
             //Set the parent to the play area and delete the pill parent
             transform.SetParent(transform.parent.parent);
+
             Destroy(pill);
 
             //Allow the piece to fall

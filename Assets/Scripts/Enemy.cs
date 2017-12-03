@@ -16,6 +16,8 @@ public class Enemy : MonoBehaviour {
     private int nextFrame;
     private int frame;
 
+    public FieldGrid field;
+
 	// Use this for initialization
 	void Start () {
         //Set the current and next frame
@@ -29,6 +31,11 @@ public class Enemy : MonoBehaviour {
 	// Update is called once per frame
 	void Update () {
         Animate();
+
+        if (field.gameOver)
+        {
+            Destroy(gameObject);
+        }
 	}
     
     /// <summary>

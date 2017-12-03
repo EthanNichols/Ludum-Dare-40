@@ -3,28 +3,109 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class Manager : MonoBehaviour {
+public class Manager : MonoBehaviour
+{
 
     //The amount of players, and their fields
     public int players = 1;
     public List<GameObject> playerFields = new List<GameObject>();
 
+    public int GameState = 0;
+
+    public List<Sprite> numbers = new List<Sprite>();
+
     //Field prefab and canvas object
     public GameObject PlayField;
     public GameObject canvas;
 
+    public GameObject scorePanel;
+    public GameObject infoPanel;
+
+    private int highScore = 1;
+    public int score;
+
+    public int level = 1;
+    public float speed = 1;
+    public int viruses = 1;
+
     //Whether the game has been started or not
     private bool gameStarted = false;
 
-	// Use this for initialization
-	void Start () {
+    // Use this for initialization
+    void Start()
+    {
+        if (level > 20) { level = 20; }
+
         CreateFields();
-	}
-	
-	// Update is called once per frame
-	void Update () {
-        SetStart();
-	}
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        if (GameState == 1)
+        {
+            SetStart();
+        }
+
+        UpdateUI();
+    }
+
+    private void UpdateUI()
+    {
+        if (score > highScore)
+        {
+            highScore = score;
+        }
+
+        GameObject highScoreUI = scorePanel.transform.Find("High").gameObject;
+        GameObject scoreUI = scorePanel.transform.Find("Score").gameObject;
+
+        GameObject levelUI = infoPanel.transform.Find("Level").gameObject;
+        GameObject speedUI = infoPanel.transform.Find("Speed").gameObject;
+        GameObject virusesUI = infoPanel.transform.Find("Viruses").gameObject;
+
+        string sHighScore = highScore.ToString();
+        string sScore = score.ToString();
+        string slevel = level.ToString();
+        string sViruses = viruses.ToString();
+
+        for (int i = 0; i < sHighScore.Length; i++)
+        {
+            highScoreUI.transform.Find(i.ToString()).GetComponent<Image>().sprite = numbers[int.Parse(sHighScore.Substring(sHighScore.Length - (i + 1), 1))];
+        }
+
+        if (score == 0)
+        {
+            for (int i = 0; i < 6; i++)
+            {
+                scoreUI.transform.Find(i.ToString()).GetComponent<Image>().sprite = numbers[0];
+            }
+        }
+
+        for (int i = 0; i < sScore.Length; i++)
+        {
+            scoreUI.transform.Find(i.ToString()).GetComponent<Image>().sprite = numbers[int.Parse(sScore.Substring(sScore.Length - (i + 1), 1))];
+        }
+
+        for (int i = 0; i < slevel.Length; i++)
+        {
+            if (sViruses.Length == 1) { levelUI.transform.Find((i + 1).ToString()).GetComponent<Image>().sprite = numbers[0]; }
+            levelUI.transform.Find(i.ToString()).GetComponent<Image>().sprite = numbers[int.Parse(slevel.Substring(slevel.Length - (i + 1), 1))];
+        }
+
+        speed = 1 - (.05f * level);
+
+        string sSpeed = "HI";
+        if (speed > .7f) { sSpeed = "LOW"; }
+        else if (speed > .4f) { sSpeed = "MED"; }
+        speedUI.transform.Find("Speed").GetComponent<Text>().text = sSpeed;
+
+        for (int i = 0; i < sViruses.Length; i++)
+        {
+            if (sViruses.Length == 1) { virusesUI.transform.Find((i + 1).ToString()).GetComponent<Image>().sprite = numbers[0]; }
+            virusesUI.transform.Find(i.ToString()).GetComponent<Image>().sprite = numbers[int.Parse(sViruses.Substring(sViruses.Length - (i + 1), 1))];
+        }
+    }
 
     /// <summary>
     /// Create all of the fields for the players to play on
@@ -46,8 +127,27 @@ public class Manager : MonoBehaviour {
             newField.transform.SetParent(canvas.transform);
             newField.transform.localPosition = new Vector2((-windowSize.x / 2) + (windowSize.x / players) * (i + .5f), 0);
 
+            newField.GetComponent<FieldGrid>().manager = this;
+
+            if (players == 1)
+            {
+                scorePanel = Instantiate(scorePanel);
+                scorePanel.transform.SetParent(newField.transform);
+                scorePanel.transform.localScale = new Vector3(.25f, .25f);
+
+                scorePanel.transform.localPosition = new Vector3(-74, 45);
+
+                infoPanel = Instantiate(infoPanel);
+                infoPanel.transform.SetParent(newField.transform);
+                infoPanel.transform.localScale = new Vector3(.25f, .25f);
+
+                infoPanel.transform.localPosition = new Vector3(74, -37.5f);
+            }
+
             //Add the field to a list of fields
             playerFields.Add(newField);
+
+            newField.SetActive(false);
         }
     }
 
@@ -63,11 +163,12 @@ public class Manager : MonoBehaviour {
         int setSeed = Random.Range(0, 1000);
 
         //Start each map giving the same speed and difficulty
-        foreach(GameObject field in playerFields)
+        foreach (GameObject field in playerFields)
         {
-            field.GetComponent<FieldGrid>().SpawnEnemies(setSeed, 20);
+            field.SetActive(true);
+            field.GetComponent<FieldGrid>().currentLevel = level;
         }
-        
+
         //Set that the game has started
         gameStarted = true;
     }

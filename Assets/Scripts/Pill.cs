@@ -14,7 +14,6 @@ public class Pill : MonoBehaviour
     public FieldGrid field;
 
     public bool playing = false;
-    private bool ableToFall = false;
 
     public float fallTimer;
     private float fallTimerReset;
@@ -32,6 +31,12 @@ public class Pill : MonoBehaviour
     {
         gridPos1 = new Vector2(3, 0);
         gridPos2 = new Vector2(4, 0);
+
+        if (field.gameObjects[gridPos1] != null ||
+            field.gameObjects[gridPos2] != null)
+        {
+            field.lost = true;
+        } 
 
         //if (seed != 0) { Random.InitState(seed); }
 
@@ -55,25 +60,20 @@ public class Pill : MonoBehaviour
         }
 
         //Set the reset timer values
-        fallTimerReset = fallTimer;
-        stillTimerReset = stillTimer;
+
+        fallTimerReset = fallTimer - (.01f * field.currentLevel);
+        stillTimerReset = stillTimer - (.01f * field.currentLevel);
         moveDownReset = moveTimer;
+
+        fallTimer = fallTimerReset;
+        stillTimer = stillTimerReset;
+
+        Debug.Log(fallTimerReset);
     }
 
     // Update is called once per frame
     void Update()
     {
-        /*
-         * Not sure if this is needed to make an aspect of the game work
-         * REMOVE if it isn't needed
-         * 
-        if (ableToFall)
-        {
-            PillFall();
-            SetPosition();
-        }
-        */
-
         //If the pill is not in play don't update it
         if (!playing) { return; }
 
@@ -82,6 +82,11 @@ public class Pill : MonoBehaviour
         SetPosition();
 
         PlacePill();
+
+        if (field.gameOver)
+        {
+            Destroy(gameObject);
+        }
     }
 
     /// <summary>
@@ -180,15 +185,15 @@ public class Pill : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Q))
         {
             if (RotatePill(1)) { fallTimer += Time.deltaTime * 5; }
+            else if (RotatePill(2)) { fallTimer += Time.deltaTime * 5; }
         }
 
-        /*
         if (Input.GetKeyDown(KeyCode.E))
         {
             //Rotate the pill
             if (RotatePill(-1)) { fallTimer += Time.deltaTime * 5; }
+            else if (RotatePill(-2)) { fallTimer += Time.deltaTime * 5; }
         }
-        */
     }
 
     /// <summary>
@@ -205,26 +210,59 @@ public class Pill : MonoBehaviour
         Vector2 newPos1 = gridPos1;
         Vector2 newPos2 = gridPos2;
 
-        //Set the new position based on the rotation
-        switch (localRot)
+        if (direction > 0)
         {
-            case 0:
-                newPos2 += new Vector2(1, 1) * direction;
-                break;
+            //Set the new position based on the rotation
+            switch (localRot)
+            {
+                case 0:
+                    newPos2 += new Vector2(1, 1);
+                    break;
 
-            case 90:
-                newPos1 -= new Vector2(0, 1) * direction;
-                newPos2 -= new Vector2(1, 0) * direction;
-                break;
+                case 90:
+                    newPos1 -= new Vector2(0, 1);
+                    newPos2 -= new Vector2(1, 0);
+                    break;
 
-            case 180:
-                newPos1 += new Vector2(1, 1) * direction;
-                break;
+                case 180:
+                    newPos1 += new Vector2(1, 1);
+                    break;
 
-            case 270:
-                newPos1 -= new Vector2(1, 0) * direction;
-                newPos2 -= new Vector2(0, 1) * direction;
-                break;
+                case 270:
+                    newPos1 -= new Vector2(1, 0);
+                    newPos2 -= new Vector2(0, 1);
+                    break;
+            }
+        } else
+        {
+            switch (localRot)
+            {
+                case 0:
+                    newPos1 += new Vector2(0, 1);
+                    newPos2 += new Vector2(1, 0);
+                    break;
+
+                case 90:
+                    newPos1 -= new Vector2(1, 1);
+                    break;
+
+                case 180:
+                    newPos1 += new Vector2(1, 0);
+                    newPos2 += new Vector2(0, 1);
+                    break;
+
+                case 270:
+                    newPos2 -= new Vector2(1, 1);
+                    break;
+            }
+        }
+
+        if (Mathf.Abs(direction) == 2)
+        {
+            Vector2 oldPos = gridPos1;
+            newPos1 = gridPos2;
+            newPos2 = oldPos;
+            localRot = rotation + 180;
         }
 
         //Test if the movement will be in bounds
