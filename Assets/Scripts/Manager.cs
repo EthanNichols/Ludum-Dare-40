@@ -11,8 +11,12 @@ public class Manager : MonoBehaviour
     public List<GameObject> playerFields = new List<GameObject>();
 
     public int GameState = 0;
+    private int lastState = 0;
 
     public List<Sprite> numbers = new List<Sprite>();
+
+    public GameObject mainMenu;
+    private int currentButton = 0;
 
     //Field prefab and canvas object
     public GameObject PlayField;
@@ -20,6 +24,7 @@ public class Manager : MonoBehaviour
 
     public GameObject scorePanel;
     public GameObject infoPanel;
+    public GameObject breakPanel;
 
     private int highScore = 1;
     public int score;
@@ -45,9 +50,56 @@ public class Manager : MonoBehaviour
         if (GameState == 1)
         {
             SetStart();
+            UpdateUI();
         }
 
-        UpdateUI();
+        if (GameState == 0)
+        {
+            MainMenu();
+        }
+    }
+
+    private void MainMenu()
+    {
+        GameObject buttons = mainMenu.transform.Find("Buttons").gameObject;
+
+        string sLevel = level.ToString();
+        GameObject levelUI = mainMenu.transform.Find("Level").gameObject;
+
+        for (int i = 0; i < sLevel.Length; i++)
+        {
+            if (sLevel.Length == 1) { levelUI.transform.Find((i + 1).ToString()).GetComponent<Image>().sprite = numbers[0]; }
+            levelUI.transform.Find(i.ToString()).GetComponent<Image>().sprite = numbers[int.Parse(sLevel.Substring(sLevel.Length - (i + 1), 1))];
+        }
+
+        foreach (Transform button in buttons.transform)
+        {
+            button.GetComponent<Image>().color = Color.white;
+        }
+
+        if (Input.GetKeyDown(KeyCode.A))
+        {
+            currentButton--;
+        }
+        else if (Input.GetKeyDown(KeyCode.D))
+        {
+            currentButton++;
+        }
+
+        if (currentButton >= 3) { currentButton = 0; }
+        if (currentButton < 0) { currentButton = 2; }
+
+        buttons.transform.GetChild(currentButton).GetComponent<Image>().color = Color.green;
+
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            if (currentButton == 0) { level--; }
+            if (currentButton == 1) { level++; }
+            if (currentButton == 2) { GameState = 1; mainMenu.SetActive(false); }
+
+            if (level < 0) { level = 0; }
+            if (level > 20) { level = 20; }
+        }
     }
 
     private void UpdateUI()
@@ -89,7 +141,7 @@ public class Manager : MonoBehaviour
 
         for (int i = 0; i < slevel.Length; i++)
         {
-            if (sViruses.Length == 1) { levelUI.transform.Find((i + 1).ToString()).GetComponent<Image>().sprite = numbers[0]; }
+            if (slevel.Length == 1) { levelUI.transform.Find((i + 1).ToString()).GetComponent<Image>().sprite = numbers[0]; }
             levelUI.transform.Find(i.ToString()).GetComponent<Image>().sprite = numbers[int.Parse(slevel.Substring(slevel.Length - (i + 1), 1))];
         }
 
@@ -142,6 +194,13 @@ public class Manager : MonoBehaviour
                 infoPanel.transform.localScale = new Vector3(.25f, .25f);
 
                 infoPanel.transform.localPosition = new Vector3(74, -37.5f);
+
+                breakPanel = Instantiate(breakPanel);
+                breakPanel.transform.SetParent(newField.transform);
+                breakPanel.transform.localScale = new Vector3(.25f, .25f);
+
+                breakPanel.transform.localPosition = Vector3.zero;
+                breakPanel.name = "Break";
             }
 
             //Add the field to a list of fields
@@ -156,6 +215,8 @@ public class Manager : MonoBehaviour
     /// </summary>
     private void SetStart()
     {
+        if (lastState == 1) { return; }
+
         //If the game has started don't start it again
         if (gameStarted) { return; }
 

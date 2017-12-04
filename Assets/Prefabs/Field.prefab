@@ -45,8 +45,9 @@ MonoBehaviour:
   - {fileID: 1161541266934950, guid: 3a8bb4987617d9b4198fa5cadae2e21f, type: 2}
   - {fileID: 1277439106647130, guid: 6c50d2c24b7366f4dab1dd8c13a4de0b, type: 2}
   pillPrefab: {fileID: 1846968001961376, guid: 1101054348b8e1e4197d9d24735b3e19, type: 2}
-  nextLevelTimer: 2
-  waitTimer: 5
+  currentLevel: 0
+  nextLevelTimer: 4
+  waitTimer: 1
   movingPieces: []
   gameOver: 0
   lost: 0
@@ -92,7 +93,7 @@ RectTransform:
   m_GameObject: {fileID: 1471213313268266}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 4, y: 4, z: 1}
+  m_LocalScale: {x: 5, y: 5, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 0

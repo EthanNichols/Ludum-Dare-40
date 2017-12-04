@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class FieldGrid : MonoBehaviour
 {
@@ -48,6 +49,8 @@ public class FieldGrid : MonoBehaviour
     // Use this for initialization
     void Start()
     {
+        transform.Find("Break").gameObject.SetActive(false);
+
         resetLevelTimer = nextLevelTimer;
         waitReset = waitTimer;
 
@@ -111,6 +114,14 @@ public class FieldGrid : MonoBehaviour
 
             gameOver = true;
             nextLevelTimer -= Time.deltaTime;
+
+            string breakText = "";
+
+            if (!lost) { breakText = "Starting\nLevel: " + (currentLevel + 1); }
+            else { breakText = "You lost!\nFinal Score:\n" + manager.score; }
+
+            transform.Find("Break").gameObject.SetActive(true);
+            transform.Find("Break").Find("Text").GetComponent<Text>().text = breakText;
         }
 
         if (nextLevelTimer <= 0)
@@ -135,6 +146,7 @@ public class FieldGrid : MonoBehaviour
 
             waitTimer = waitReset;
 
+            transform.Find("Break").gameObject.SetActive(false);
             lost = false;
         }
 
